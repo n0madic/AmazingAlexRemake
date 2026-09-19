@@ -1,0 +1,55 @@
+# The desktop builds of the remake (docs/10 §8): Linux (gcc), Windows (MSVC) and macOS (clang), each
+# with G1 (aa_libm_selftest) and the doctest suites without the imported asset tree (the Rovio bundle is
+# never in the repository; the asset-backed cases skip). Android is built with the NDK on the Linux
+# runner (the shared library only — the APK needs the asset tree).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            generator: Ninja
+          - os: windows-2022
+            generator: "Visual Studio 17 2022"
+          - os: macos-14
+            generator: Ninja
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux packages for raylib's GLFW (X11, Wayland, GL headers)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build libgl1-mesa-dev libx11-dev libxcursor-dev libxrandr-dev \
+            libxinerama-dev libxi-dev libxkbcommon-dev libwayland-dev wayland-protocols libasound2-dev
+      - name: macOS packages
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      - name: Configure
+        run: cmake -S . -B build -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: G1 and the doctest suites without assets
+        run: ctest --test-dir build -C Release --output-on-failure -R "aa_libm_selftest|aa_tests"
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure with the NDK toolchain for arm64-v8a
+        run: |
+          NDK="$ANDROID_NDK_LATEST_HOME"
+          cmake -S . -B build-android -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 -DANDROID_STL=c++_static \
+            -DAA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build libamazing_alex.so
+        run: cmake --build build-android --target amazing_alex

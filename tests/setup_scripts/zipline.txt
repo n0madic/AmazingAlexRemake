@@ -1,0 +1,19 @@
+# Treehouse/Conundrum: zip line 1 (42) dragged by anchor A (body 0), anchor B (body 1) and the trolley
+# (body 2); bucket 3 on rope 2 dragged; a bouncy ball rotated.
+level 03_Treehouse/Conundrum
+started 1 0
+updatepos 1 0 2.7 1.7
+updatepos 1 0 2.65 1.75 0.05
+ended 1
+started 1 1
+updatepos 1 1 3.0 1.4
+ended 1
+started 1 2
+updatepos 1 2 2.9 1.5
+ended 1
+started 3 0
+updatepos 3 0 2.85 1.15
+updatepos 3 0 2.8 1.1 0 0.001 0.0
+ended 3
+updateangle 9 1.0
+setpos 9 2.9 1.3

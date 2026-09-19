@@ -1,0 +1,4 @@
+level 00_Classroom/KlassRoom
+frames 60
+goal
+frames 180

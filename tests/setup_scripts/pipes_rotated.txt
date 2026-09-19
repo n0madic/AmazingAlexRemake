@@ -1,0 +1,16 @@
+# Backyard/PipeBouncing: the level's pipes are rotated (pipe 9 and elbow 1 at 0.398 rad, elbows 5 / 10 at
+# ∓π/2) and start attached end-to-end. Picking one up detaches it; a CalculateSnap and a drag back next to
+# its neighbour with a small angular error exercise the aligned snap at a non-zero angle — the result must
+# place the pipe by its *local* point rotated to the new angle (docs/04 §7), which only coincides with
+# rotating the world-space offset at angle 0. `pipes.txt` never actually snaps (every result is `snap 0`).
+level 01_Backyard/PipeBouncing
+started 9 0
+snap 9 2.49 1.10 2.49 1.10 0.35
+updatepos 9 0 2.49 1.10 0.55
+updatepos 9 0 2.50 1.11 0.55
+ended 9
+started 10 0
+snap 10 0.72 1.38 0.72 1.38 0.19
+updatepos 10 0 0.72 1.38 1.70
+updatepos 10 0 0.71 1.39 1.70
+ended 10

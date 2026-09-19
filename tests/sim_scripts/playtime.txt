@@ -1,0 +1,3 @@
+level 00_Classroom/Playtime
+# the pre-placed layout completes by itself: goal at ~6.3 s of play time, the 2.05 s countdown, state 6
+frames 720

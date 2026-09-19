@@ -1,0 +1,22 @@
+# Treehouse/ChopperRescue: level truck 6 (no built-in controller), helicopter 10 hanging doll 13 on rope 9:
+# drags, flips and drops of the controlled items (the toolbox-spawn controller split needs AddNewItem and
+# stays doctest-only).
+level 03_Treehouse/ChopperRescue
+started 6 0
+updatepos 6 0 0.6 0.3
+updatepos 6 0 0.65 0.35 0.1 0.001 0.0
+ended 6
+flip 6
+flip 7
+started 10 0
+updatepos 10 0 2.9 1.2
+updatepos 10 0 2.85 1.25 0 0.001 0.0
+ended 10
+flip 10
+started 13 0
+updatepos 13 0 3.2 1.1 -0.151621819 0.001 0.0
+ended 13
+detach 9 1
+started 13 0
+updatepos 13 0 3.0 1.0 -0.151621819 0.0001 0.0
+ended 13

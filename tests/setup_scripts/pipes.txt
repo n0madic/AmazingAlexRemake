@@ -1,0 +1,18 @@
+# Backyard/PipeBouncing: pipe 9 (17) and the 90° pipes 1, 5, 10 (18): pipe-end snapping with the 45° rule,
+# rotation and the drop.
+level 01_Backyard/PipeBouncing
+started 9 0
+updatepos 9 0 2.8 1.4 0.397881866
+snap 9 2.85 1.35 2.85 1.35 0.3
+updatepos 9 0 2.75 1.3 0.397881866 0.001 0.0
+ended 9
+updateangle 9 0.5
+updateangle 9 -0.2
+started 10 0
+updatepos 10 0 0.5 1.5 1.57689273
+updatepos 10 0 0.45 1.55 1.57689273
+ended 10
+unsnapall 10
+started 5 0
+updatepos 5 0 0.75 1.4 -1.56470096
+ended 5

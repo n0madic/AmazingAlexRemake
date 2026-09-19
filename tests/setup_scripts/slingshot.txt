@@ -1,0 +1,15 @@
+# Backyard/StopTheThief: slingshot 10 (34): frame drag, pouch drag, a tennis ball 4 dragged over the pouch.
+level 01_Backyard/StopTheThief
+started 10 0
+updatepos 10 0 0.9 1.2
+updatepos 10 0 0.95 1.25 0.1
+ended 10
+started 10 1
+updatepos 10 1 0.9 1.1
+updatepos 10 1 0.85 1.05
+ended 10
+started 4 0
+updatepos 4 0 0.85 1.05
+updatepos 4 0 0.83 1.0
+ended 4
+flip 10

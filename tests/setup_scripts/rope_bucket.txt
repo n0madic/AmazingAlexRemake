@@ -1,0 +1,18 @@
+# Backyard/BackForth: bucket 6 hangs on rope 7 (end 1) which hangs on hook 8; rope 4 links balloon 2 and
+# hook 11. Dragging the bucket makes the rope follow; a slow rope-end drag snaps and attaches.
+level 01_Backyard/BackForth
+started 6 0
+updatepos 6 0 1.9 1.3
+updatepos 6 0 1.95 1.25 0 0.001 0.0
+updatepos 6 0 2.2 1.0 0.1 0.01 -0.01
+ended 6
+snap 6 1.9 1.3 1.9 1.3 0.2
+detach 4 0
+started 4 1
+updatepos 4 1 2.9 1.5 0 0.0001 0.0
+updatepos 4 1 2.86 1.45 0 0.0001 0.0
+ended 4
+started 7 2
+updatepos 7 2 2.0 1.5 0 0.02 0.0
+updatepos 7 2 1.95 1.3 0 0.0001 0.0
+ended 7

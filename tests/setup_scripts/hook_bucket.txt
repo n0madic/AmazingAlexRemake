@@ -1,0 +1,15 @@
+# Room/Swing: bucket 2 hangs on rope 3 under hook 4, doll 5 flipped. The bucket is detached and dragged
+# slowly back under the hook (snap → attach on the drop), the rope end is dragged, the doll flipped.
+level 02_Room/Swing
+detach 2 0
+started 2 0
+updatepos 2 0 2.6 1.0 0.472598374
+updatepos 2 0 2.52 1.05 0.472598374 0.0001 0.0
+snap 2 2.52 1.05 2.52 1.05 0.3
+ended 2
+started 3 2
+updatepos 3 2 2.7 1.2 0 0.0001 0.0
+ended 3
+flip 5
+flip 5
+attachnearby 2

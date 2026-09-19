@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Amazing Alex</title>
+<link rel="icon" href="favicon.png" type="image/png">
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+  /* raylib's Emscripten backend hardcodes the "#canvas" selector (fullscreen, resize, WebGL context).
+     It fills the viewport exactly: ScreenLayout::compute (core/sim, platform_web.cpp's queryPlatform)
+     already lays the game out continuously for whatever aspect ratio that is (letterbox pillars on a
+     wide window, bands on a narrow one), so no separate CSS-level letterbox should sit on top of it. */
+  #canvas { display: block; width: 100%; height: 100%; outline: none; }
+</style>
+</head>
+<body>
+<canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+<script>
+  var Module = {
+    canvas: document.getElementById('canvas'),
+  };
+  // A regular web build can opt in without recompiling: /?nointro starts at the main menu.
+  if (new URLSearchParams(window.location.search).has('nointro')) Module.arguments = ['--nointro'];
+</script>
+<script src="amazing_alex.js"></script>
+</body>
+</html>

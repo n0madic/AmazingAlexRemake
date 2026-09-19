@@ -1,0 +1,20 @@
+# Classroom/PushDontPop: scissors 1 flip (rotate by π), a shelf flip (bodies re-created), a rotation, the
+# set-up collision step and the colliding queries.
+level 00_Classroom/PushDontPop
+flip 1
+flip 4
+flip 4
+updateangle 5 0.3
+setpos 3 2.61 1.64
+step0
+colliding 3
+collidingwith 3 5
+colliding 5
+setpos 3 0.854164958 0.551127911
+step0
+colliding 3
+setpos 6 1.5 1.85
+updateangle 6 0.5
+flip 6
+step0
+colliding 6

@@ -1,0 +1,10 @@
+# unpacked / decrypted / decompiled reference material (reproducible with tools/)
+extracted/
+*.ipa
+*.apk
+__pycache__/
+.DS_Store
+.venv/
+build/
+tools/ghidra/
+build-*/

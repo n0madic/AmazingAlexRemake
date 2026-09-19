@@ -1,0 +1,2 @@
+# Whole-catalogue runs (tools/sim_run_conformance.py --all-levels) allowed to differ from the emulated
+# original, one `<run name> <reason>` per line. Every entry is an open item of docs/10 §11.
