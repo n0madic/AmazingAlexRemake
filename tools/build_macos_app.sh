@@ -5,7 +5,8 @@
 # or --icon PNG) as AppIcon.icns, then an ad-hoc code signature over the whole bundle. The bundle embeds the
 # user's own imported assets, so it is not something to redistribute.
 #
-#   tools/build_macos_app.sh [--assets build/assets] [--build build] [--icon <png>] [--debug | --release] [--no-run]
+#   tools/build_macos_app.sh [--assets build/assets] [--build build] [--icon <png>] [--debug | --release]
+#                            [--nointro] [--no-run]
 #   → <build>/app/Amazing Alex.app; Release is the default and is configured into <build> every time (a Debug
 #   tree there gets reconfigured — pass --debug to keep it); --no-run skips the headless walk of the bundle's binary
 set -euo pipefail
@@ -15,6 +16,7 @@ ASSETS="$ROOT/build/assets"
 BUILD="$ROOT/build"
 ICON=""
 BUILD_TYPE="Release"
+NOINTRO=OFF
 RUN=1
 PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
 [ -x "$PYTHON" ] || PYTHON="python3"
@@ -26,6 +28,7 @@ while [ $# -gt 0 ]; do
         --icon) ICON="$2"; shift 2 ;;
         --debug) BUILD_TYPE="Debug"; shift ;;
         --release) BUILD_TYPE="Release"; shift ;;
+        --nointro) NOINTRO=ON; shift ;;
         --no-run) RUN=0; shift ;;
         *) echo "unknown option $1" >&2; exit 2 ;;
     esac
@@ -39,7 +42,7 @@ if [ -f "$BUILD/CMakeCache.txt" ]; then
     CACHED="$(sed -n 's/^CMAKE_BUILD_TYPE:[A-Z]*=//p' "$BUILD/CMakeCache.txt")"
     [ "$CACHED" = "$BUILD_TYPE" ] || echo "   $BUILD was configured as '$CACHED': reconfiguring as $BUILD_TYPE (a full rebuild)"
 fi
-cmake -S "$ROOT" -B "$BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" > /dev/null
+cmake -S "$ROOT" -B "$BUILD" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DAA_NOINTRO="$NOINTRO" > /dev/null
 cmake --build "$BUILD" --target amazing_alex_bundle
 APP="$BUILD/app/Amazing Alex.app"
 RES="$APP/Contents/Resources"

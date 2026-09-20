@@ -15,6 +15,9 @@ TEST_JOBS ?= 3
 GAME := $(BUILD)/app/amazing_alex
 ICON_ARG = $(if $(ICON),--icon "$(ICON)",)
 
+NOINTRO ?=
+NOINTRO_ARG = $(if $(NOINTRO),--nointro,)
+
 .DEFAULT_GOAL := build
 
 .PHONY: help configure build test test-fast run headless viewer macos windows linux android web web-zip
@@ -34,10 +37,10 @@ help:
 	@echo "  make web         Build the WebAssembly version"
 	@echo "  make web-zip     Build the web version and zip it for deployment"
 	@echo
-	@echo "Variables: BUILD=$(BUILD), ASSETS=$(ASSETS), CONFIG=$(CONFIG), TEST_JOBS=$(TEST_JOBS), ICON=<override.png>"
+	@echo "Variables: BUILD=$(BUILD), ASSETS=$(ASSETS), CONFIG=$(CONFIG), TEST_JOBS=$(TEST_JOBS), ICON=<override.png>, NOINTRO=1 (skip the intro, start at the main menu)"
 
 configure:
-	$(CMAKE) -S . -B "$(BUILD)" -DCMAKE_BUILD_TYPE="$(CONFIG)" -DAA_ASSETS="$(ASSETS)"
+	$(CMAKE) -S . -B "$(BUILD)" -DCMAKE_BUILD_TYPE="$(CONFIG)" -DAA_ASSETS="$(ASSETS)" -DAA_NOINTRO="$(if $(NOINTRO),ON,OFF)"
 
 build: configure
 	$(CMAKE) --build "$(BUILD)" --config "$(CONFIG)" --parallel
@@ -58,19 +61,19 @@ viewer: build
 	"$(GAME)" --viewer --assets "$(ASSETS)"
 
 macos:
-	tools/build_macos_app.sh --assets "$(ASSETS)" --build "$(BUILD)" $(ICON_ARG)
+	tools/build_macos_app.sh --assets "$(ASSETS)" --build "$(BUILD)" $(ICON_ARG) $(NOINTRO_ARG)
 
 windows:
-	tools/build_windows_mingw.sh --assets "$(ASSETS)" --build "$(WINDOWS_BUILD)" $(ICON_ARG)
+	tools/build_windows_mingw.sh --assets "$(ASSETS)" --build "$(WINDOWS_BUILD)" $(ICON_ARG) $(NOINTRO_ARG)
 
 linux:
-	tools/build_linux_docker.sh --assets "$(ASSETS)" --build "$(LINUX_BUILD)" $(ICON_ARG)
+	tools/build_linux_docker.sh --assets "$(ASSETS)" --build "$(LINUX_BUILD)" $(ICON_ARG) $(NOINTRO_ARG)
 
 android:
-	tools/build_android.sh --assets "$(ASSETS)" --out "$(ANDROID_OUT)" $(ICON_ARG)
+	tools/build_android.sh --assets "$(ASSETS)" --out "$(ANDROID_OUT)" $(ICON_ARG) $(NOINTRO_ARG)
 
 web:
-	tools/build_web.sh --assets "$(ASSETS)" --out "$(WEB_BUILD)"
+	tools/build_web.sh --assets "$(ASSETS)" --out "$(WEB_BUILD)" $(NOINTRO_ARG)
 
 web-zip: web
 	rm -f "$(WEB_ZIP)"

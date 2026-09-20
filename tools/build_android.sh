@@ -5,7 +5,7 @@
 #
 #   tools/build_android.sh [--assets build/assets] [--out build/android] [--abi arm64-v8a]
 #                          [--ndk <dir>] [--sdk <dir>] [--build-tools <version>] [--platform <api>]
-#                          [--icon <png>] [--release]   (Release CMake build type is the default; --debug for Debug)
+#                          [--icon <png>] [--nointro] [--release]   (Release CMake build type is the default; --debug for Debug)
 #
 # The launcher icon is the imported canonical branding/icon.png (or --icon), resized into the
 # mipmap densities at packaging time — like the assets, it is the player's own copy and never sits in
@@ -25,6 +25,7 @@ ASSETS="$ROOT/build/assets"
 OUT="$ROOT/build/android"
 BUILD_TYPE="Release"
 ICON=""
+NOINTRO=OFF
 PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
 [ -x "$PYTHON" ] || PYTHON="python3"
 
@@ -38,6 +39,7 @@ while [ $# -gt 0 ]; do
         --build-tools) BUILD_TOOLS="$2"; shift 2 ;;
         --platform) PLATFORM_API="$2"; shift 2 ;;
         --icon) ICON="$2"; shift 2 ;;
+        --nointro) NOINTRO=ON; shift ;;
         --debug) BUILD_TYPE="Debug"; shift ;;
         --release) BUILD_TYPE="Release"; shift ;;
         *) echo "unknown option $1" >&2; exit 2 ;;
@@ -77,7 +79,7 @@ mkdir -p "$NATIVE"
 cmake -S "$ROOT" -B "$NATIVE" -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI="$ABI" -DANDROID_PLATFORM="android-$MIN_SDK" -DANDROID_STL=c++_static \
-    -DAA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE="$BUILD_TYPE" > "$NATIVE/configure.log"
+    -DAA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DAA_NOINTRO="$NOINTRO" > "$NATIVE/configure.log"
 cmake --build "$NATIVE" --target amazing_alex
 SO="$NATIVE/app/libamazing_alex.so"
 [ -f "$SO" ] || { echo "no $SO" >&2; exit 1; }
