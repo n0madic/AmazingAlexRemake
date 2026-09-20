@@ -6,6 +6,8 @@ WINDOWS_BUILD ?= build-mingw
 LINUX_BUILD ?= build-linux-docker
 ANDROID_OUT ?= build/android
 WEB_BUILD ?= build-web
+WEB_ZIP ?= $(WEB_BUILD)/amazing_alex-web.zip
+WEB_ZIP_FILES := index.html amazing_alex.js amazing_alex.wasm amazing_alex.data favicon.png
 
 CMAKE ?= cmake
 CTEST ?= ctest
@@ -15,7 +17,7 @@ ICON_ARG = $(if $(ICON),--icon "$(ICON)",)
 
 .DEFAULT_GOAL := build
 
-.PHONY: help configure build test test-fast run headless viewer macos windows linux android web
+.PHONY: help configure build test test-fast run headless viewer macos windows linux android web web-zip
 
 help:
 	@echo "Amazing Alex build targets:"
@@ -30,6 +32,7 @@ help:
 	@echo "  make linux       Build and test Linux in Docker"
 	@echo "  make android     Build the Android APK"
 	@echo "  make web         Build the WebAssembly version"
+	@echo "  make web-zip     Build the web version and zip it for deployment"
 	@echo
 	@echo "Variables: BUILD=$(BUILD), ASSETS=$(ASSETS), CONFIG=$(CONFIG), TEST_JOBS=$(TEST_JOBS), ICON=<override.png>"
 
@@ -68,3 +71,8 @@ android:
 
 web:
 	tools/build_web.sh --assets "$(ASSETS)" --out "$(WEB_BUILD)"
+
+web-zip: web
+	rm -f "$(WEB_ZIP)"
+	zip -9 -j "$(WEB_ZIP)" $(wildcard $(addprefix $(WEB_BUILD)/app/,$(WEB_ZIP_FILES)))
+	@echo "web zip: $(WEB_ZIP)"
