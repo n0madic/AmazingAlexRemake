@@ -41,6 +41,18 @@ esac
 export EM_CACHE="${EM_CACHE:-$OUT/emscripten-cache}"
 mkdir -p "$EM_CACHE"
 
+# emcmake hands CMake the toolchain by its resolved, versioned path (Homebrew: Cellar/emscripten/<version>), and
+# CMake pins the compiler from it on the first configure; after an Emscripten upgrade that path is gone and the
+# configure fails. Remember the installation the tree was configured with and drop CMake's cache when it changes.
+EM_ROOT="$(em-config EMSCRIPTEN_ROOT)"
+EM_STAMP="$OUT/.emscripten-root"
+if [ -f "$OUT/CMakeCache.txt" ] && [ "$(cat "$EM_STAMP" 2>/dev/null)" != "$EM_ROOT" ]; then
+    echo "Emscripten changed to $EM_ROOT: reconfiguring $OUT from scratch" >&2
+    rm -rf "$OUT/CMakeCache.txt" "$OUT/CMakeFiles"
+fi
+mkdir -p "$OUT"
+printf '%s\n' "$EM_ROOT" > "$EM_STAMP"
+
 cmake_args=(
     -DAA_BUILD_WEB=ON
     -DAA_BUILD_TESTS=OFF
