@@ -2,7 +2,8 @@
 container, `ui/<profile>/REMAKE_COMMON.json` + `.png`, next to the imported ones.
 
 `BUTTON_SMALL_MUSIC` / `BUTTON_SMALL_MUSIC_OFF`: the note icon of the music-only switch, in the style of
-`BUTTON_SMALL_SOUND` / `_OFF` (white shapes with the dark red outline, the diagonal slash for OFF), sized for
+`BUTTON_SMALL_SOUND` / `_OFF` (white shapes with the dark red outline that thickens to the bottom right like a
+drop shadow; for OFF a corner-to-corner slash, outlined thinly along its sides only), sized for
 the 2048X1536 sheet and scaled by the profile width for the others. Run directly to preview:
 
     python3 tools/remake_ui.py <out.png>
@@ -15,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 CONTAINER = "REMAKE_COMMON"
 REFERENCE_PROFILE_WIDTH = 2048
@@ -26,8 +27,11 @@ OUTLINE = (134, 12, 43, 255)   # the MENU_MENU_COMMON icon outline colour
 # Icon geometry in 2048X1536 sheet pixels (BUTTON_SMALL_SOUND is 56×85, _OFF 101×88).
 NOTE_W, NOTE_H = 64, 85
 OFF_W, OFF_H = 101, 88
-OUTLINE_PX = 6.0
-SLASH_PX = 11.0            # the white band of the slash
+OUTLINE_PX = 4.0           # the outline on the top / left sides (measured on BUTTON_SMALL_SOUND)
+SHADOW_DX, SHADOW_DY = 3.0, 7.0   # the outline's extra thickness to the right / bottom
+SLASH_PX = 12.0            # the white band of the slash
+SLASH_OUTLINE_PX = 3.0     # the slash's own outline, along its sides only (open ends, no shadow)
+SLASH_MARGIN_PX = 0.0      # the slash runs almost corner to corner
 HEAD_RX, HEAD_RY = 12.5, 9.5
 HEAD_TILT_DEG = -25.0
 STEM_PX = 6.0
@@ -55,11 +59,11 @@ def _note_mask(scale: float) -> Image.Image:
     size = (int(round(NOTE_W * k)), int(round(NOTE_H * k)))
     m = _mask(size)
     d = ImageDraw.Draw(m)
-    inset = OUTLINE_PX + 1.0
+    left, top = OUTLINE_PX + 1.0, OUTLINE_PX + 1.0
+    right, bottom = OUTLINE_PX + SHADOW_DX + 1.0, OUTLINE_PX + SHADOW_DY + 1.0
     # Heads sit at the bottom corners; the stems rise from their right edges; the beam joins the stem tops.
-    left_cx, right_cx = inset + HEAD_RX, NOTE_W - inset - HEAD_RX
-    head_cy = NOTE_H - inset - HEAD_RY
-    top = inset
+    left_cx, right_cx = left + HEAD_RX, NOTE_W - right - HEAD_RX
+    head_cy = NOTE_H - bottom - HEAD_RY
     for cx, drop in ((left_cx, BEAM_DROP), (right_cx, 0.0)):
         d.polygon([(x * k, y * k) for x, y in _ellipse_polygon(cx, head_cy, HEAD_RX, HEAD_RY, HEAD_TILT_DEG)], fill=255)
         stem_x = cx + HEAD_RX - STEM_PX * 0.5 - 1.0
@@ -70,14 +74,15 @@ def _note_mask(scale: float) -> Image.Image:
     return m
 
 
-def _slash_mask(size: tuple[int, int], scale: float) -> Image.Image:
-    """The OFF slash: a band from the top-right to the bottom-left corner, as BUTTON_SMALL_SOUND_OFF has."""
+def _slash_mask(size: tuple[int, int], scale: float, extra_half_px: float = 0.0) -> Image.Image:
+    """The OFF slash: a band from the top-right to the bottom-left corner, as BUTTON_SMALL_SOUND_OFF has, widened
+    by `extra_half_px` on each side but never lengthened."""
     k = scale * SUPERSAMPLE
     w, h = size
     m = _mask(size)
     d = ImageDraw.Draw(m)
-    half = SLASH_PX * 0.5 * k
-    margin = (OUTLINE_PX + 1.0) * k
+    half = (SLASH_PX * 0.5 + extra_half_px) * k
+    margin = (SLASH_OUTLINE_PX + SLASH_MARGIN_PX) * k
     # The band's centre line runs corner to corner inside the outline margin.
     x0, y0 = w - margin, margin
     x1, y1 = margin, h - margin
@@ -88,10 +93,17 @@ def _slash_mask(size: tuple[int, int], scale: float) -> Image.Image:
     return m
 
 
-def _outlined(shape: Image.Image, scale: float) -> Image.Image:
-    """White shape over its dilated dark outline, still supersampled."""
-    r = int(round(OUTLINE_PX * scale * SUPERSAMPLE))
+def _outlined(shape: Image.Image, scale: float, outline_px: float, shadow: tuple[float, float] = (0.0, 0.0)) -> Image.Image:
+    """White shape over its dilated dark outline, the outline stretched by `shadow` to the bottom right; still
+    supersampled."""
+    k = scale * SUPERSAMPLE
+    r = int(round(outline_px * k))
     outline = shape.filter(ImageFilter.MaxFilter(2 * r + 1))
+    dx, dy = int(round(shadow[0] * k)), int(round(shadow[1] * k))
+    if dx or dy:
+        shifted = Image.new("L", outline.size, 0)
+        shifted.paste(outline, (dx, dy))
+        outline = ImageChops.lighter(outline, shifted)
     img = Image.new("RGBA", shape.size, (0, 0, 0, 0))
     img.paste(OUTLINE, mask=outline)
     img.paste(WHITE, mask=shape)
@@ -104,12 +116,16 @@ def _downsample(img: Image.Image) -> Image.Image:
 
 def render_icons(scale: float) -> dict[str, Image.Image]:
     note = _note_mask(scale)
-    on = _outlined(note, scale)
+    on = _outlined(note, scale, OUTLINE_PX, (SHADOW_DX, SHADOW_DY))
     k = scale * SUPERSAMPLE
     off_size = (int(round(OFF_W * k)), int(round(OFF_H * k)))
     off = Image.new("RGBA", off_size, (0, 0, 0, 0))
     off.alpha_composite(on, ((off_size[0] - on.width) // 2, (off_size[1] - on.height) // 2))
-    off.alpha_composite(_outlined(_slash_mask(off_size, scale), scale))
+    # The outline runs along the band's sides only: its white ends lie over the button's ring, as the original's do.
+    slash = Image.new("RGBA", off_size, (0, 0, 0, 0))
+    slash.paste(OUTLINE, mask=_slash_mask(off_size, scale, SLASH_OUTLINE_PX))
+    slash.paste(WHITE, mask=_slash_mask(off_size, scale))
+    off.alpha_composite(slash)
     return {"BUTTON_SMALL_MUSIC": _downsample(on), "BUTTON_SMALL_MUSIC_OFF": _downsample(off)}
 
 
