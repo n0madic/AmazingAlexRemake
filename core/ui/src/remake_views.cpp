@@ -21,4 +21,15 @@ aa::data::JsonDoc gameMusicButton() {
                              "GameScene:ButtonMusic");
 }
 
+aa::data::JsonDoc gameTipPanel() { return aa::data::JsonDoc(R"({"BackgroundColor": {"R": 0, "G": 0, "B": 0, "A": 110}})", "GameScene:TipPanel"); }
+
+aa::data::JsonDoc gameTipLabel() {
+    return aa::data::JsonDoc(R"({"Font": "FONT_4", "FontAnchorH": "LEFT", "AutoResizeH": true, "HilightColor": {"R": 255, "G": 214, "B": 0, "A": 255}})",
+                             "GameScene:LabelTip");
+}
+
+aa::data::JsonDoc gameTipButton() {
+    return aa::data::JsonDoc(R"({"ImageBackground": "BUTTON_SMALL_BASE", "ImageStateNormal": "BUTTON_SMALL_INFO"})", "GameScene:ButtonTip");
+}
+
 }  // namespace aa::ui::remake

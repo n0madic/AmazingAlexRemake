@@ -633,6 +633,143 @@ TEST_CASE("ui engine: SceneManager RemoveScene is middle-only, PushScene stacks 
     CHECK(manager.activeScene()->state() == scene_state::kActive);
 }
 
+namespace {
+
+// Records the tint every sprite is drawn with.
+struct TintRecorder : Renderer {
+    Color tint = Renderer::kNoTint;
+    std::vector<Color> sprites;
+    void setState(const DrawState&) override {}
+    void drawSprite(const SpriteRef&, float, float, float, float) override { sprites.push_back(tint); }
+    void drawColorRect(const Rect&, Color) override {}
+    void setTint(Color c) override { tint = c; }
+};
+
+bool sameColor(Color a, Color b) { return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a; }
+
+int glyphCount(const BitmapFont& font, const std::string& s) {
+    int n = 0;
+    for (int code : decodeUtf8(s)) n += font.isCharacterSupported(code) ? 1 : 0;
+    return n;
+}
+
+}  // namespace
+
+TEST_CASE("ui layout: HighlightLabelView wraps without its markers and tints the highlighted fill (remake-only)") {
+    AA_REQUIRE_ASSETS();
+    Fixture f(1024, 768);
+    CHECK(HighlightLabelView::stripMarkers("a *b c* d") == "a b c d");
+    const Color yellow{255, 214, 0, 255};
+    HighlightLabelView label(f.ctx);
+    label.init();
+    label.setFont("FONT_4");   // outlined: laid out with FONT_4_OUTLINES, as OutlineLabelView
+    CHECK(label.fontName() == "FONT_4_OUTLINES");
+    label.setHighlightColor(yellow);
+    label.setAnchor(FontAnchorH::Center, FontAnchorV::Top);
+    label.setFrame(Rect{0.0f, 0.0f, 300.0f, 400.0f});
+    const std::string text = "Hey, it's me, Alex! *Tap play* to get *the ball into the basket*.";
+    label.setNonLocalizedText(text);
+    REQUIRE(label.lines().size() >= 2);
+    const BitmapFont* outline = f.resources.font("FONT_4_OUTLINES");
+    const BitmapFont* fill = f.resources.font("FONT_4");
+    REQUIRE(outline != nullptr);
+    REQUIRE(fill != nullptr);
+    for (const std::string& l : label.lines()) CHECK(outline->stringWidth(HighlightLabelView::stripMarkers(l)) < 300.0f);
+    TintRecorder r;
+    label.draw(r, label.frame());
+    // Every glyph of the wrapped lines twice (the outline, then the fill over it); only the highlighted
+    // fill is tinted.
+    std::string visible;
+    std::string highlighted;
+    bool state = false;
+    for (const std::string& l : label.lines()) {
+        for (char c : l) {
+            if (c == '*') state = !state;
+            else (state ? highlighted : visible).push_back(c);
+        }
+    }
+    std::string letters = highlighted;   // a line break's space goes with the wrap
+    letters.erase(std::remove(letters.begin(), letters.end(), ' '), letters.end());
+    CHECK(letters == "Tapplaytheballintothebasket");
+    const int all = glyphCount(*outline, visible) + glyphCount(*outline, highlighted);
+    CHECK(static_cast<int>(r.sprites.size()) == all + glyphCount(*fill, visible) + glyphCount(*fill, highlighted));
+    const int tinted = static_cast<int>(std::count_if(r.sprites.begin(), r.sprites.end(), [&](Color c) { return sameColor(c, yellow); }));
+    CHECK(tinted == glyphCount(*fill, highlighted));
+    CHECK(sameColor(r.tint, Renderer::kNoTint));   // restored after the draw
+}
+
+TEST_CASE("ui engine: the level tip shows in the game beside the toolbox strip for its reading time; the info button toggles it (remake-only)") {
+    AA_REQUIRE_ASSETS();
+    Fixture f(1024, 768);
+    const aa::sim::FrameTable frames = aa::data::loadFrameTableFile(f.root.atlasJsonPath("GameItems"));
+    const aa::sim::TemplateTable templates = aa::sim::initTemplates(frames);
+    f.app.loadLocation(0);
+    GameScene scene(f.ctx, f.app, templates);
+    scene.init();
+    GameView* gv = scene.gameView();
+    constexpr float kDt = 1.0f / 60.0f;
+    const auto step = [&] {
+        scene.update(kDt);
+        f.animator.update(kDt);
+    };
+    REQUIRE(scene.selectLevel(1));   // Catch That Ball: one shelf in the strip, a tutorial
+    scene.activate();
+    int frame = 0;
+    for (; frame < 60 * 2 && !gv->isTipShown(); ++frame) step();
+    REQUIRE(gv->isTipShown());   // after the view's show fade, with the level name
+    CHECK(gv->tipButton()->isVisible());
+    const std::string tip = f.localization.text(f.app.meta(0, 1).tipId);
+    CHECK(gv->tipLabel()->text() == tip);
+    // Up for the reading time plus the two fades.
+    const float up = GameView::tipReadingTime(HighlightLabelView::stripMarkers(tip)) + 2.0f * GameView::kTipFade;
+    int shownFrames = 0;
+    bool placed = false;
+    for (; shownFrames < 60 * 10 && gv->isTipShown(); ++shownFrames) {
+        step();
+        if (shownFrames == 60) {
+            // The strip is out by now: the panel sits right of the info button and left of the strip, its
+            // bottom on the button's, all on screen.
+            const aa::sim::ScreenRect strip = scene.session().toolbox().getToolboxRectangle();
+            const Rect panel = gv->tipPanel()->frame();
+            const Rect button = gv->tipButton()->frame();
+            CHECK(strip.left < 1024.0f);
+            CHECK(panel.x >= button.x + button.w);
+            CHECK(panel.x + panel.w <= strip.left);
+            CHECK(panel.y + panel.h == doctest::Approx(button.y + button.h));
+            CHECK(button.y + button.h <= 768.0f);
+            CHECK(gv->tipLabel()->lines().size() >= 1);
+            placed = true;
+        }
+    }
+    CHECK(placed);
+    CHECK(static_cast<float>(shownFrames) * kDt == doctest::Approx(up).epsilon(0.02));
+    CHECK_FALSE(gv->isTipShown());
+    // The info button shows it again and hides it, the tutorial left running.
+    const bool tutorial = scene.session().tutorial().running;
+    gv->buttonPressed(gv->tipButton()->id());
+    CHECK(gv->isTipShown());
+    gv->buttonPressed(gv->tipButton()->id());
+    CHECK_FALSE(gv->isTipShown());
+    CHECK(scene.session().tutorial().running == tutorial);
+    // Opening the pause menu hides it.
+    gv->buttonPressed(gv->tipButton()->id());
+    REQUIRE(gv->isTipShown());
+    gv->buttonPressed(gv->pauseButton()->id());
+    CHECK_FALSE(gv->isTipShown());
+    // The info button during the view's show (the menu held off until its slide ends) keeps it off.
+    scene.activate();
+    step();
+    REQUIRE(gv->tipButton()->isVisible());
+    REQUIRE_FALSE(gv->pauseButton()->isInteractable());
+    gv->buttonAboutToBePressed(gv->tipButton()->id());
+    gv->buttonPressed(gv->tipButton()->id());
+    CHECK(gv->isTipShown());
+    CHECK_FALSE(gv->pauseButton()->isInteractable());
+    // The reading time: clamped at both ends.
+    CHECK(GameView::tipReadingTime("") == GameView::kTipMinTime);
+    CHECK(GameView::tipReadingTime(std::string(1000, 'a')) == GameView::kTipMaxTime);
+}
+
 TEST_CASE("ui engine: a button reset to Normal while pressed releases the shared touch id") {
     // Remake fix (docs/06 §1.1): ChapterSelectionView::Refresh resets the books' state on a page change;
     // a release on such a button must not keep the static processed-touch id.

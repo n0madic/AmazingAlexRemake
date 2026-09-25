@@ -79,6 +79,20 @@ public:
     void showLevelName(bool animated);
     void hideLevelName(bool animated);
     void updateLevelInfo();
+    // Remake: the level tip (docs/06 §3) — shown on entering a level for its reading time, again from the
+    // info button; hidden by the button while up, and when the level completes.
+    static constexpr float kTipBaseTime = 1.0f;
+    static constexpr float kTipTimePerLetter = 0.05f;
+    static constexpr float kTipMinTime = 2.5f;
+    static constexpr float kTipMaxTime = 7.0f;
+    static constexpr float kTipFade = 0.25f;
+    static float tipReadingTime(const std::string& visibleText);
+    void showTip();
+    void hideTip();
+    bool isTipShown() const { return tipPanel_->isVisible(); }
+    HighlightLabelView* tipLabel() { return tip_; }
+    View* tipPanel() { return tipPanel_; }
+    Button* tipButton() { return tipButton_; }
     // startLevelCompleted: the Alex popup at the goal (grows 0.3 → 1.2 → 1.0).
     void startLevelCompleted(Point goalScreen);
     void hideLevelCompleteStartAnim();
@@ -94,6 +108,9 @@ public:
 
 private:
     void setMenuInteraction(bool on);
+    // Places the info button and the tip panel against the toolbox strip's current rectangle (the strip
+    // grows and slides; the label re-wraps only when its width changes).
+    void layoutTip();
     std::vector<View*> leftViews();
     std::vector<View*> rightViews();
     AppState* app_;
@@ -113,6 +130,10 @@ private:
     ImageView* sidebarRight_ = nullptr;
     ToggleButton* play_ = nullptr;
     View* dim_ = nullptr;
+    View* tipPanel_ = nullptr;
+    HighlightLabelView* tip_ = nullptr;
+    Button* tipButton_ = nullptr;
+    float tipTime_ = 0.0f;   // the shown tip's remaining time (the fades included)
     float leftOpenX_ = 0.0f;      // +0x490: the sidebar fully out
     float leftShownX_ = 0.0f;     // +0x498: the pause button peeking
     float leftHiddenX_ = 0.0f;    // +0x4a0: everything off screen

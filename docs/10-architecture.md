@@ -451,9 +451,10 @@ sandbox scope were decided (§6, §10). Remaining:
 13. **M5 leftovers and deviations:** (a) the UI sprite scale `pixelScale / 2` is a remake decision (06 §1.1) —
     the original picks a profile per device and draws its sprites 1:1; (b) the level-complete popup and the
     tutorial hand use the original's 4:3 mapping (`W / 3.41`, `(H − floor) / 2.12459`), which drifts from the
-    world position on letterboxed windows exactly as the original did; (c) the loading screen shows "Loading…"
-    only — faithful: the shipped `LevelLoadingScene` is `Background` + `LabelLoading` and `LevelLoadingView::Init`
-    reads nothing else, the tips are dead data (06 §3); (d) `PageControl`'s page-number label: x = the active
+    world position on letterboxed windows exactly as the original did; (c) the loading screen shows
+    "Loading…" only — faithful: the shipped `LevelLoadingScene` is `Background` + `LabelLoading` and
+    `LevelLoadingView::Init` reads nothing else, the tips are dead data; the remake shows the level's tip in the
+    game instead (a remake addition, 06 §3); (d) `PageControl`'s page-number label: x = the active
     dot's x, y = dot y − label height + activeH / 2.05 with the division in double [verified: `RefreshPages`
     disassembly] — a device screenshot would still be welcome, none is available; (e) the transition's second
     `TutorialUtils::Update` is approximated in the toggling frame (the port takes doFrame case 3 at once; inert

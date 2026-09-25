@@ -93,11 +93,12 @@ void UiRenderer::drawSprite(const aa::ui::SpriteRef& sprite, float x, float y, f
     const float v0 = static_cast<float>(s.y) / th;
     const float u1 = static_cast<float>(s.x + s.w) / tw;
     const float v1 = static_cast<float>(s.y + s.h) / th;
-    const unsigned char a = static_cast<unsigned char>(std::lround(255.0f * (state_.alpha < 0.0f ? 0.0f : (state_.alpha > 1.0f ? 1.0f : state_.alpha))));
+    const float alpha = state_.alpha < 0.0f ? 0.0f : (state_.alpha > 1.0f ? 1.0f : state_.alpha);
+    const unsigned char a = static_cast<unsigned char>(std::lround(static_cast<float>(tint_.a) * alpha));
     pushViewMatrix(state_);
     rlSetTexture(tex->id);
     rlBegin(RL_QUADS);
-    rlColor4ub(255, 255, 255, a);
+    rlColor4ub(tint_.r, tint_.g, tint_.b, a);
     rlNormal3f(0.0f, 0.0f, 1.0f);
     rlTexCoord2f(u0, v0);
     rlVertex2f(x, y);

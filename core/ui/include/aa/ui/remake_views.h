@@ -16,4 +16,12 @@ aa::data::JsonDoc gameMusicButton();
 // ButtonAudio's Relative.Y for the pause sidebar — the original's 32 % moved up to make room for the note.
 constexpr float kGameAudioButtonY = 22.0f;
 
+// The level tip in the game (docs/06 §3): the level's TEXT_LEVEL_TIP_* at the bottom left of the play field,
+// left of the toolbox strip — a dark panel (TipPanel) holding the label (LabelTip: FONT_4, the `*highlighted*`
+// words tinted yellow), and the small info button (ButtonTip) that shows it again. GameView places all three
+// itself from the toolbox strip's rectangle.
+aa::data::JsonDoc gameTipPanel();
+aa::data::JsonDoc gameTipLabel();
+aa::data::JsonDoc gameTipButton();
+
 }  // namespace aa::ui::remake

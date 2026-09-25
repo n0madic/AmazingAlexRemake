@@ -664,6 +664,26 @@ struct Walker {
         shot("07_game");
         game.run(60 * 3);   // the Classroom tutorial hand has faded in and moved to the play button
         shot("07b_game_tutorial");
+        // The level tip (remake, docs/06 §3): up on entering the level; the info button hides it and shows it
+        // again, the tutorial left running.
+        {
+            aa::ui::GameView* view = game.gameScene->gameView();
+            if (!view->isTipShown() || !view->tipButton()->isVisible()) {
+                failure = "the level tip is not shown on entering the level";
+                return false;
+            }
+            if (!tapView("ButtonTip")) return false;
+            game.run(30);   // the button's press animation, then ButtonPressed
+            const bool hidden = !view->isTipShown();
+            if (!tapView("ButtonTip")) return false;
+            game.run(30);   // the button's press animation, then ButtonPressed
+            if (!hidden || !view->isTipShown() || !game.gameScene->session().tutorial().running) {
+                failure = std::string("the info button did not toggle the tip (or stopped the tutorial): hidden ") + (hidden ? "1" : "0") +
+                          ", shown again " + (view->isTipShown() ? "1" : "0") + ", tutorial " +
+                          (game.gameScene->session().tutorial().running ? "1" : "0");
+                return false;
+            }
+        }
         // Play: Playtime completes on its own (docs/10 §8, the G4 `playtime` script: ~6.3 s + 2.05 s).
         if (!tapView("ButtonPlay")) return false;
         for (int i = 0; i < 60 * 14 && !game.gameScene->completedView()->isVisible(); ++i) game.frame(kFixedDt);

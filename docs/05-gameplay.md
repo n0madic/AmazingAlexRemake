@@ -27,7 +27,7 @@ GameState+0x23a8, so the Treehouse floor hole appears at the next test play [ver
 10 §11 item 14 (k)).
 
 Screens (`UI::*Scene`): Splash → MainMenu → ChapterSelection (books) → LevelSelection (thumbnails, stars) →
-LevelLoading ("Loading…" only — the tips are dead data, 06 §3) → **GameScene** → LevelCompleted overlay →
+LevelLoading ("Loading…" only — the tips are dead data in the original; the remake shows them in the game, 06 §3) → **GameScene** → LevelCompleted overlay →
 ChapterComplete / ChapterComplete3Stars → Comic (`COMIC_CH1*`, the Classroom only). Sandbox: the seventh book →
 MyContraptions → LevelLoading (location 2 = an existing level, 3 = a new one) → SandboxScene (its own
 `SandboxView` over the shared world drawing, the editor toolbox). Online: WorldOfContraptions, FeaturedLevels,

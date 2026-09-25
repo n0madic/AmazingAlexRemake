@@ -20,6 +20,18 @@ std::string localizedText(const UiContext& ctx, const std::string& id) {
     return ctx.localization ? ctx.localization->text(id) : id;
 }
 
+namespace {
+
+// A {R,G,B,A} dictionary; all four channels are needed [verified for BackgroundColor].
+bool colorFromDict(const aa::data::JsonNode& node, Color& out) {
+    if (!node.isObject() || !node.has("R") || !node.has("G") || !node.has("B") || !node.has("A")) return false;
+    out = Color{static_cast<std::uint8_t>(node.getInt("R")), static_cast<std::uint8_t>(node.getInt("G")), static_cast<std::uint8_t>(node.getInt("B")),
+                static_cast<std::uint8_t>(node.getInt("A"))};
+    return true;
+}
+
+}  // namespace
+
 View::View(UiContext& ctx) : ctx_(&ctx), id_(nextId_++) {}
 
 View::~View() = default;
@@ -31,11 +43,7 @@ void View::init() { init(aa::data::JsonNode(nullptr, "")); }
 void View::init(const aa::data::JsonNode& dict) {
     if (dict.isNull()) return;
     // BackgroundColor needs all four channels [verified].
-    const aa::data::JsonNode bg = dict.optional("BackgroundColor");
-    if (bg.isObject() && bg.has("R") && bg.has("G") && bg.has("B") && bg.has("A")) {
-        setBackgroundColor(Color{static_cast<std::uint8_t>(bg.getInt("R")), static_cast<std::uint8_t>(bg.getInt("G")),
-                                 static_cast<std::uint8_t>(bg.getInt("B")), static_cast<std::uint8_t>(bg.getInt("A"))});
-    }
+    if (Color bg; colorFromDict(dict.optional("BackgroundColor"), bg)) setBackgroundColor(bg);
     if (dict.has("X")) frame_.x = static_cast<float>(dict.getInt("X"));
     if (dict.has("Y")) frame_.y = static_cast<float>(dict.getInt("Y"));
     if (dict.has("W")) frame_.w = static_cast<float>(dict.getInt("W"));
@@ -787,7 +795,7 @@ void LabelView::wrapText(const std::string& text) {
         return;
     }
     const float width = frame_.w;
-    auto fits = [&](const std::string& s) { return autoResizeW_ || font->stringWidth(s) < width; };
+    auto fits = [&](const std::string& s) { return autoResizeW_ || textWidth(*font, s) < width; };
     std::vector<std::string> tokens = tokenize(text);
     std::string line;
     bool stop = false;
@@ -800,9 +808,9 @@ void LabelView::wrapText(const std::string& text) {
         }
         if (word == " " || word.empty()) continue;
         // A word wider than the view is split; the remainder becomes the next token.
-        if (!autoResizeW_ && !(font->stringWidth(word) < width)) {
+        if (!autoResizeW_ && !(textWidth(*font, word) < width)) {
             std::string head = word;
-            while (!head.empty() && !(font->stringWidth(head) < width)) dropLastChar(head);
+            while (!head.empty() && !(textWidth(*font, head) < width)) dropLastChar(head);
             if (head.empty()) head = word.substr(0, 1);
             const std::string rest = word.substr(head.size());
             tokens.insert(tokens.begin() + static_cast<std::ptrdiff_t>(i) + 1, rest);
@@ -845,7 +853,7 @@ void LabelView::wrapText(const std::string& text) {
         float maxW = 0.0f;
         float totalH = font->maxDescending();
         for (const std::string& l : lines_) {
-            maxW = std::max(maxW, font->stringWidth(l));
+            maxW = std::max(maxW, textWidth(*font, l));
             totalH += font->leading();
         }
         Rect f = frame_;
@@ -980,21 +988,39 @@ void OutlineLabelView::setScale(float s) {
 
 void HighlightLabelView::init(const aa::data::JsonNode& dict) {
     LabelView::init(dict);
-    if (!dict.isNull() && dict.has("HilightFont")) setHighlightFont(dict.getString("HilightFont"));
+    if (dict.isNull()) return;
+    if (dict.has("HilightFont")) setHighlightFont(dict.getString("HilightFont"));
+    if (Color c; colorFromDict(dict.optional("HilightColor"), c)) setHighlightColor(c);
 }
 
-void HighlightLabelView::wrapText(const std::string& text) {
-    // The markers are not drawn: wrap the text without them so the line widths are right, then put the
-    // markers back per line by tracking the highlight state through the original text.
-    LabelView::wrapText(text);
+void HighlightLabelView::setFont(const std::string& font) {
+    // As OutlineLabelView::SetFont: a font with an outline entry is laid out with the outline font.
+    const aa::data::FontOutline* o = ctx_->resources->outline(font);
+    fillFont_ = o ? font : std::string();
+    LabelView::setFont(o ? o->outlineFont : font);
 }
+
+std::string HighlightLabelView::stripMarkers(const std::string& text) {
+    std::string out;
+    out.reserve(text.size());
+    for (char c : text) {
+        if (c != '*') out.push_back(c);
+    }
+    return out;
+}
+
+float HighlightLabelView::textWidth(const BitmapFont& font, const std::string& s) const { return font.stringWidth(stripMarkers(s)); }
 
 float HighlightLabelView::segmentedWidth(const std::string& line, const BitmapFont& normal, const BitmapFont& highlight, bool& state) const {
+    // The segments' widths plus the tracking draw() advances by between them.
     float width = 0.0f;
+    bool first = true;
     std::string segment;
     auto flush = [&]() {
         if (segment.empty()) return;
-        width += (state ? highlight : normal).stringWidth(segment);
+        const BitmapFont& f = state ? highlight : normal;
+        width += f.stringWidth(segment) + (first ? 0.0f : f.tracking());
+        first = false;
         segment.clear();
     };
     for (char c : line) {
@@ -1015,37 +1041,57 @@ void HighlightLabelView::draw(Renderer& renderer, const Rect& rect) {
     if (!normal) return;
     const BitmapFont* highlight = highlightFont_.empty() ? normal : ctx_->resources->font(highlightFont_);
     if (!highlight) highlight = normal;
+    // Outlined: fontName_ is the outline font, the fill goes over it at the entry's offset.
+    const BitmapFont* fill = fillFont_.empty() ? nullptr : ctx_->resources->font(fillFont_);
+    Point fillOffset{0.0f, 0.0f};
+    if (fill) {
+        if (const aa::data::FontOutline* o = ctx_->resources->outline(fillFont_)) {
+            fillOffset = Point{static_cast<float>(static_cast<int>(static_cast<float>(o->offsetX) * ctx_->screen.uiScale)),
+                               static_cast<float>(static_cast<int>(static_cast<float>(o->offsetY) * ctx_->screen.uiScale))};
+        }
+    }
     const float leading = std::max(normal->leading(), highlight->leading());
     // The line origin uses the larger leading of the two fonts.
-    float y = 0.0f;
+    float top = 0.0f;
     const int n = static_cast<int>(lines_.size());
-    if (anchorV_ == FontAnchorV::Center) y = rect.h * 0.5f - (wordWrapping_ ? leading * static_cast<float>(n - 1) * 0.5f : 0.0f);
-    else if (anchorV_ == FontAnchorV::Bottom) y = rect.h - (wordWrapping_ ? leading * static_cast<float>(n - 1) : 0.0f);
-    bool state = false;
-    for (const std::string& line : lines_) {
-        bool measureState = state;
-        const float width = segmentedWidth(line, *normal, *highlight, measureState);
-        float x = 0.0f;
-        if (anchorH_ == FontAnchorH::Center) x = rect.w * 0.5f - width * 0.5f;
-        else if (anchorH_ == FontAnchorH::Right) x = rect.w - width;
-        std::string segment;
-        auto flush = [&]() {
-            if (segment.empty()) return;
-            const BitmapFont& f = state ? *highlight : *normal;
-            f.drawString(renderer, segment, x, y, anchorV_, FontAnchorH::Left);
-            x += f.stringWidth(segment) + f.tracking();
-            segment.clear();
-        };
-        for (char c : line) {
-            if (c == '*') {
-                flush();
-                state = !state;
-            } else {
-                segment.push_back(c);
+    if (anchorV_ == FontAnchorV::Center) top = rect.h * 0.5f - (wordWrapping_ ? leading * static_cast<float>(n - 1) * 0.5f : 0.0f);
+    else if (anchorV_ == FontAnchorV::Bottom) top = rect.h - (wordWrapping_ ? leading * static_cast<float>(n - 1) : 0.0f);
+    // Pass 0 draws the outlines (or the plain text), pass 1 the fills over every outline.
+    for (int pass = 0; pass < (fill ? 2 : 1); ++pass) {
+        const bool fillPass = fill && pass == 1;
+        bool state = false;
+        float y = top;
+        for (const std::string& line : lines_) {
+            bool measureState = state;
+            const float width = segmentedWidth(line, *normal, *highlight, measureState);
+            float x = 0.0f;
+            if (anchorH_ == FontAnchorH::Center) x = rect.w * 0.5f - width * 0.5f;
+            else if (anchorH_ == FontAnchorH::Right) x = rect.w - width;
+            std::string segment;
+            auto flush = [&]() {
+                if (segment.empty()) return;
+                const BitmapFont& f = state ? *highlight : *normal;
+                // The outline keeps its colour; the tint goes on the fill (or the plain text). FONT_4's fill
+                // is white; FONT_3's pair is the other way round (a white "outline", a blue "fill").
+                const bool tinted = state && (fillPass || !fill);
+                if (tinted) renderer.setTint(highlightColor_);
+                if (fillPass) fill->drawString(renderer, segment, x + fillOffset.x, y + fillOffset.y, anchorV_, FontAnchorH::Left);
+                else f.drawString(renderer, segment, x, y, anchorV_, FontAnchorH::Left);
+                if (tinted) renderer.setTint(Renderer::kNoTint);
+                x += f.stringWidth(segment) + f.tracking();
+                segment.clear();
+            };
+            for (char c : line) {
+                if (c == '*') {
+                    flush();
+                    state = !state;
+                } else {
+                    segment.push_back(c);
+                }
             }
+            flush();
+            y += leading;
         }
-        flush();
-        y += leading;
     }
 }
 

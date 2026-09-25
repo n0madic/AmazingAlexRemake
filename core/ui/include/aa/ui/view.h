@@ -279,6 +279,9 @@ public:
 protected:
     // WrapText(text): the line list and, with auto-resize, the frame size.
     virtual void wrapText(const std::string& text);
+    // The width WrapText measures a candidate line with (the font's getStringWidth; a markup-aware label
+    // leaves its markers out).
+    virtual float textWidth(const BitmapFont& font, const std::string& s) const { return font.stringWidth(s); }
     // The line origin of Draw: x from the H anchor, y from the V anchor and the line count.
     Point lineOrigin(const BitmapFont& font, const Rect& rect) const;
 
@@ -325,20 +328,30 @@ private:
 };
 
 // UI::HighlightLabelView: `*word*` segments drawn with the highlight font (the loading-screen tips).
+// Remake extensions (the original's class is unused by the shipped binaries, docs/06 §3): a font with a
+// Fonts.xml outline entry is drawn outlined the way OutlineLabelView draws it (every outline first, then the
+// fill at the uiScale'd offset), and `HilightColor` {R,G,B,A} tints the highlighted fill instead of (or on
+// top of) a second font.
 class HighlightLabelView : public LabelView {
 public:
     using View::init;
     explicit HighlightLabelView(UiContext& ctx) : LabelView(ctx) {}
     void init(const aa::data::JsonNode& dict) override;
+    void setFont(const std::string& font) override;
     void setHighlightFont(const std::string& font) { highlightFont_ = font; }
+    void setHighlightColor(Color c) { highlightColor_ = c; }
+    // The markers are not drawn: the visible text of `text` (every '*' dropped).
+    static std::string stripMarkers(const std::string& text);
     void draw(Renderer& renderer, const Rect& rect) override;
 
 protected:
-    void wrapText(const std::string& text) override;
+    float textWidth(const BitmapFont& font, const std::string& s) const override;
 
 private:
     float segmentedWidth(const std::string& line, const BitmapFont& normal, const BitmapFont& highlight, bool& state) const;
     std::string highlightFont_;
+    std::string fillFont_;   // the fill font when fontName_ is its outline font (the wrap measures the outline)
+    Color highlightColor_ = Renderer::kNoTint;
 };
 
 // Parses the `Text` attribute family of the label dictionaries.

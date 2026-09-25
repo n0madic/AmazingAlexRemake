@@ -22,6 +22,7 @@ public:
     void setState(const aa::ui::DrawState& state) override;
     void drawSprite(const aa::ui::SpriteRef& sprite, float x, float y, float w, float h) override;
     void drawColorRect(const aa::ui::Rect& rect, aa::ui::Color color) override;
+    void setTint(aa::ui::Color tint) override { tint_ = tint; }
     // Flushes the batch and ends a scissor left by the last clipped view: raylib keeps the scissor across
     // EndDrawing, and the next ClearBackground / render-texture pass would honour it.
     void endFrame();
@@ -35,6 +36,7 @@ private:
     const aa::ui::ResourceProxy* resources_;
     std::map<std::string, Texture2D> textures_;
     aa::ui::DrawState state_;
+    aa::ui::Color tint_ = aa::ui::Renderer::kNoTint;
     bool clipping_ = false;
 };
 

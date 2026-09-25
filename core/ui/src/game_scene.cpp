@@ -204,8 +204,26 @@ GameView::GameView(UiContext& ctx, AppState& app, GameScene& scene, const aa::da
     play_->setViewName("ButtonPlay");
     play_->init(sub(dict, "ButtonPlay"));
     play_->setDelegate(this);
+    tipPanel_ = make<View>(owned_, ctx);
+    tipPanel_->setViewName("TipPanel");
+    tipPanel_->init(remake::gameTipPanel().root());
+    tipPanel_->setInteraction(false);   // the taps go through to the world
+    tipPanel_->setVisible(false);
+    tip_ = make<HighlightLabelView>(owned_, ctx);
+    tip_->setViewName("LabelTip");
+    tip_->init(remake::gameTipLabel().root());
+    tip_->setInteraction(false);
+    tipPanel_->addSubview(tip_);
+    tipButton_ = make<Button>(owned_, ctx);
+    tipButton_->setViewName("ButtonTip");
+    tipButton_->init(remake::gameTipButton().root());
+    tipButton_->setDelegate(this);
+    tipButton_->setVisible(false);
     addSubview(resultAlex_);
     addSubview(circle_);
+    // The tip views under the sidebars: the open pause menu covers them.
+    addSubview(tipPanel_);
+    addSubview(tipButton_);
     addSubview(sidebarBackground_);
     addSubview(sidebarButtonArea_);
     sidebarButtonArea_->addSubview(pause_);
@@ -290,6 +308,7 @@ void GameView::relayout() {
     }
     rightHidden_ = sidebarRight_->position();
     rightShown_ = Point{rightHidden_.x - sidebarRight_->size().w, rightHidden_.y};
+    layoutTip();
     const float rightTarget = controlsShown_ ? rightShown_.x : rightHidden_.x;
     const float rightDx = rightTarget - sidebarRight_->position().x;
     if (rightDx != 0.0f) {
@@ -499,6 +518,71 @@ void GameView::updateLevelInfo() {
     }
     solutions_->setVisible(false);
     solutions_->setInteraction(false);
+    // A campaign level's tip (a sandbox level's description is its author's, not a localised tip).
+    std::string tipId;
+    if (loc >= 0 && !app_->isSandboxLocation(loc)) tipId = app_->meta(loc, level).tipId;
+    // localizedText hands an id without a text back as the id itself: no tip then either.
+    const std::string text = tipId.empty() ? std::string() : localizedText(*ctx_, tipId);
+    hideTip();
+    const bool hasTip = !text.empty() && text != tipId;
+    if (hasTip) tip_->setText(tipId);
+    else tip_->setNonLocalizedText("");
+    tipButton_->setVisible(hasTip);
+    tipButton_->setInteraction(hasTip);
+    layoutTip();
+}
+
+float GameView::tipReadingTime(const std::string& visibleText) {
+    const float letters = static_cast<float>(decodeUtf8(visibleText).size());
+    return std::clamp(kTipBaseTime + kTipTimePerLetter * letters, kTipMinTime, kTipMaxTime);
+}
+
+void GameView::showTip() {
+    if (!tipButton_->isVisible()) return;
+    tipTime_ = tipReadingTime(HighlightLabelView::stripMarkers(tip_->text())) + 2.0f * kTipFade;
+    tipPanel_->setVisible(true);
+    tipPanel_->setAlpha(0.0f);
+    layoutTip();
+}
+
+void GameView::hideTip() {
+    tipTime_ = 0.0f;
+    tipPanel_->setVisible(false);
+}
+
+void GameView::layoutTip() {
+    // The toolbox strip: native px, y up from the window's bottom (Toolbox, docs/05 §5).
+    const float h = ctx_->screen.nativeHeight;
+    const float playLeft = ctx_->screen.letterBoxFrameWidth;
+    const float playRight = ctx_->screen.nativeWidth - ctx_->screen.letterBoxFrameWidth;
+    const aa::sim::Toolbox& tb = scene_->session().toolbox();
+    const aa::sim::ScreenRect strip = tb.getToolboxRectangle();
+    const float margin = std::round(16.0f * ctx_->screen.uiScale);
+    const float padding = std::round(14.0f * ctx_->screen.uiScale);
+    // The info button: at the play field's left edge, on the strip's centre line.
+    const Size b = tipButton_->size();
+    const float centreY = h - tb.y;
+    tipButton_->setPosition(Point{playLeft + margin, std::min(centreY - b.h * 0.5f, h - margin - b.h)});
+    if (!tipPanel_->isVisible()) return;
+    // The panel: right of the button up to the strip, its bottom on the button's; above the strip when the
+    // strip leaves too little room beside it (a long toolbox).
+    const float stripLeft = std::min(strip.left, playRight);
+    float left = tipButton_->position().x + b.w + margin;
+    float right = stripLeft - margin;
+    float bottom = tipButton_->position().y + b.h;
+    if (right - left < (playRight - playLeft) * 0.35f) {
+        left = playLeft + margin;
+        right = playRight - margin;
+        bottom = h - (strip.top) - margin;
+    }
+    const float labelW = std::max(1.0f, right - left - 2.0f * padding);
+    if (tip_->size().w != labelW) {
+        tip_->setFrame(Rect{padding, padding, labelW, tip_->size().h});
+        tip_->reWrap();
+    }
+    const float panelH = tip_->size().h + 2.0f * padding;
+    tipPanel_->setFrame(Rect{left, bottom - panelH, right - left, panelH});
+    tip_->setPosition(Point{padding, padding});
 }
 
 void GameView::startLevelCompleted(Point goalScreen) {
@@ -569,6 +653,19 @@ void GameView::hide() {
 
 void GameView::update(float dt) {
     View::update(dt);
+    if (tipPanel_->isVisible()) {
+        tipTime_ -= dt;
+        const float total = tipReadingTime(HighlightLabelView::stripMarkers(tip_->text())) + 2.0f * kTipFade;
+        if (tipTime_ <= 0.0f || scene_->session().completing()) {
+            hideTip();
+        } else {
+            const float elapsed = total - tipTime_;
+            tipPanel_->setAlpha(std::clamp(std::min(elapsed, tipTime_) / kTipFade, 0.0f, 1.0f));
+            layoutTip();
+        }
+    } else {
+        layoutTip();   // the info button follows the strip's slide
+    }
     if (alexAnimating_) {
         if (alexSegment_ >= 2) {
             alexAnimating_ = false;
@@ -589,6 +686,7 @@ void GameView::animationFinished(int id) {
         enablePauseMenu(false);
         enableGameControls(false);
         showLevelName(true);
+        showTip();
     }
     if (id == hideAnim_) hideAnim_ = 0;
     if (id == nameShowAnim_) {
@@ -654,9 +752,19 @@ void GameView::animationFinished(int id) {
     if (id == disableControlsAnim_) disableControlsAnim_ = 0;
 }
 
-void GameView::buttonAboutToBePressed(int) { setMenuInteraction(false); }
+void GameView::buttonAboutToBePressed(int id) {
+    // Remake: the info button leaves the menu's interaction as it is (a show / slide may hold it off).
+    if (id == tipButton_->id()) return;
+    setMenuInteraction(false);
+}
 
 void GameView::buttonPressed(int id) {
+    // Remake: the info button toggles the tip and leaves the tutorial, the held item and the menu alone.
+    if (id == tipButton_->id()) {
+        if (isTipShown()) hideTip();
+        else showTip();
+        return;
+    }
     scene_->session().stopTutorial();   // GameView::ButtonPressed [verified]: the gizmo off, the tutorial stopped
     scene_->session().pause();          // the held item released (set-up state only)
     hideLevelName(false);
@@ -665,6 +773,7 @@ void GameView::buttonPressed(int id) {
     if (id == pause_->id()) {
         hideLevelName(false);
         if (menuState_ == MenuState::Closing || menuState_ == MenuState::Shown) {
+            hideTip();   // remake: the tip would sit over the dim and the sidebar
             scene_->setLevelMenu(true);
             openPauseMenu(true);
         } else if (menuState_ == MenuState::Open) {
@@ -1135,6 +1244,7 @@ void GameScene::playNextLevel() {
     app_->saveLocation();
     gameView_->updateLevelInfo();
     gameView_->showLevelName(true);
+    gameView_->showTip();
 }
 
 void GameScene::replayLevel() {

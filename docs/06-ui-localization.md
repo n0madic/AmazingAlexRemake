@@ -78,7 +78,9 @@ timings come from `View::Init` / `UpdateViewAnchors` / `BaseDraw` / `HitTest`, `
   `FontAnchorV` (TOP / VCENTER / BOTTOM), `Text` (a text id) / `NonLocalizedText`, `AutoResize` (**both** axes),
   `AutoResizeW`, `AutoResizeH`, `MaxRows`, `MaxLetters` (ellipsis), `WrapText` on spaces and `\n`; the auto-resized
   height is `maxDescending + lines × leading`; the outline label draws the outline font under the fill font offset
-  by the `Fonts.xml` offsets; the highlight label switches the font inside `*word*` segments.
+  by the `Fonts.xml` offsets; the highlight label switches the font inside `*word*` segments (remake: outlined
+  like the outline label when its font has a `Fonts.xml` entry, `HilightColor` tints the highlighted letters, the
+  wrap measures the lines without the markers — §3).
 * **ScrollView** (`HorizontalScrolling`, `VerticalScrolling`, `Paging`, `RubberBandFactor`, `ClipSubviews`): the
   content view's frame is (−offset, contentSize); paging clamps with a pad of `pageSize · factor · 0.5`; a drag over
   20 px cancels the child's touch (`TouchFilter`); a fling decelerates 0.3 s (ease-out, `velocity × 0.3`); with
@@ -293,8 +295,22 @@ the five shipped languages.
   item-specific ones (5 balloon, 17 pipe, 14 boxing glove, 22 seesaw, 34 slingshot, 35 RC truck); `Platform = 1`
   marks iOS-only wording (multi-touch rotate). **Dead data [verified, M5]:** neither the Android `.so` nor the iOS
   binary references `Tips.plist`, `objectType` or the level descriptions (`TEXT_LEVEL_TIP_*`) — `LevelLoadingView`
-  shows the title picture and "Loading…" only. The remake keeps the loader (`aa::data::loadTips`) and the JSON
-  but shows no tip (docs/10 §11).
+  shows the title picture and "Loading…" only. The remake keeps the loader (`aa::data::loadTips`) and the JSON;
+  `Tips.plist` stays unused.
+* **Remake addition — the level tip in the game (2026-09-25).** `GameView` shows the campaign level's
+  `description` (`TEXT_LEVEL_TIP_*`) on entering a level (after the view's show fade, with the level name; also
+  on the in-game "next level"; not on a restart or a replay) at the bottom left of the play field: a dark
+  translucent `TipPanel` with the `LabelTip` (`HighlightLabelView`, FONT_4 outlined, the `*highlighted*` words'
+  fill tinted yellow through `HilightColor` and `Renderer::setTint`) right of a small info button (`ButtonTip`,
+  `BUTTON_SMALL_BASE` + `BUTTON_SMALL_INFO`) and left of the toolbox strip — both placed every frame from
+  `Toolbox::getToolboxRectangle()`, the button on the strip's centre line; when the strip leaves less than 35 %
+  of the play field beside it the panel goes above the strip, full width. The tip stays up for
+  `clamp(1 s + 0.05 s × letters, 2.5 s, 7 s)` plus a 0.25 s fade each way; the info button shows it again (or
+  hides it) without stopping the tutorial or releasing a held item; the pause menu and the level's completion
+  hide it. The panel takes no touches (the world gets them). The dictionaries: `remake::gameTipPanel()` /
+  `gameTipLabel()` / `gameTipButton()`. The loading screen stays the original's. Font fact that cost time: FONT_4
+  is a white fill over a dark-red outline font, but FONT_3's pair is the other way round (`FONT_3_OUTLINES` is
+  the white letter, `FONT_3` the blue stroke) — `HilightColor` tints the fill, so it suits FONT_4 only.
 * Chapter titles inside the books are pre-rendered per language (`CHAPTER_TEXT_CHAPTER_TEXT_{EN,FR,IT,DE,ES}.png` and
   `BOOKS_COMPOSPRITES` `BOOK_<CHAPTER>_<LANG>` composites), as are the share-email pictures (`SHARE_EMAIL_<LANG>`).
 
