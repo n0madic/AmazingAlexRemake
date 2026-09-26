@@ -26,7 +26,7 @@ constexpr float kStarPopScale = 1.2f;
 constexpr float kStarPopDuration = 0.1f;    // 0x3dcccccd
 constexpr float kStarDelays[3] = {0.4f, 0.8f, 1.2f};
 constexpr int kResultStarSounds[3] = {0x44, 0x45, 0x46};
-constexpr float kResultStarVolume = 0.5f;
+constexpr float kResultStarVolume = 0.35f;   // remake: the original 0.5 cut 30 % (the chimes read harsh)
 constexpr int kUiButtonPush = 3;
 constexpr float kUiVolume = 0.2f;
 
