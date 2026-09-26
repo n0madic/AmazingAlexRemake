@@ -12,16 +12,79 @@
      already lays the game out continuously for whatever aspect ratio that is (letterbox pillars on a
      wide window, bands on a narrow one), so no separate CSS-level letterbox should sit on top of it. */
   #canvas { display: block; width: 100%; height: 100%; outline: none; }
+  /* Loading overlay: covers the canvas while the .data package downloads and main() initialises. */
+  #loader {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; background: #000; color: #ddd; font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    transition: opacity 0.3s;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+  #loader img { width: 128px; height: 128px; border-radius: 24px; }
+  #loader-bar { width: min(320px, 70vw); height: 8px; border-radius: 4px; background: #333; overflow: hidden; }
+  #loader-fill { width: 0; height: 100%; background: #f5b800; transition: width 0.15s; }
+  #loader-fill.busy { width: 100%; animation: loader-pulse 1s ease-in-out infinite alternate; }
+  @keyframes loader-pulse { from { opacity: 0.4; } to { opacity: 1; } }
+  #loader-text { min-height: 1.4em; text-align: center; padding: 0 16px; }
+  #loader.error #loader-text { color: #ff6b6b; }
 </style>
 </head>
 <body>
 <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+<div id="loader">
+  <img src="favicon.png" alt="" onerror="this.remove()">
+  <div id="loader-bar"><div id="loader-fill"></div></div>
+  <div id="loader-text">Loading…</div>
+</div>
 <script>
-  var Module = {
-    canvas: document.getElementById('canvas'),
-  };
-  // A regular web build can opt in without recompiling: /?nointro starts at the main menu.
-  if (new URLSearchParams(window.location.search).has('nointro')) Module.arguments = ['--nointro'];
+  (function () {
+    var loader = document.getElementById('loader');
+    var fill = document.getElementById('loader-fill');
+    var text = document.getElementById('loader-text');
+    var failed = false;
+    var MB = 1024 * 1024;
+
+    function show(message, fraction) {
+      if (failed) return;
+      text.textContent = message;
+      fill.classList.toggle('busy', fraction === null);
+      if (fraction !== null) fill.style.width = (fraction * 100).toFixed(1) + '%';
+    }
+
+    window.Module = {
+      canvas: document.getElementById('canvas'),
+      // The file packager reports "Downloading data... (loaded/total)" in bytes while it streams
+      // amazing_alex.data; Emscripten's runtime reports "Running..." and "" once main() is about to run.
+      setStatus: function (status) {
+        var m = /\((\d+)\/(\d+)\)/.exec(status);
+        if (m && +m[2] > 0) {
+          var loaded = +m[1], total = +m[2];
+          show('Loading game data… ' + Math.floor(100 * loaded / total) + '% (' +
+               (loaded / MB).toFixed(1) + ' / ' + (total / MB).toFixed(1) + ' MB)', loaded / total);
+        } else if (status) {
+          show('Starting…', null);
+        }
+      },
+      // main() initialises synchronously (atlases, scenes) and returns after scheduling the main loop,
+      // so the overlay stays painted until the first frame is ready to replace it.
+      postRun: [function () {
+        if (failed) return;
+        loader.classList.add('done');
+        setTimeout(function () { loader.remove(); }, 400);
+      }],
+      onAbort: function (what) {
+        show('Failed to start the game: ' + what, 0);
+        failed = true;
+        loader.classList.add('error');
+      },
+    };
+    // A failed .data fetch surfaces as a rejected promise inside the file packager, not through onAbort.
+    addEventListener('unhandledrejection', function (event) {
+      if (loader.isConnected) Module.onAbort(event.reason && event.reason.message || event.reason);
+    });
+    // A regular web build can opt in without recompiling: /?nointro starts at the main menu.
+    if (new URLSearchParams(window.location.search).has('nointro')) Module.arguments = ['--nointro'];
+    show('Loading…', null);
+  }());
 </script>
 <script src="amazing_alex.js"></script>
 </body>
