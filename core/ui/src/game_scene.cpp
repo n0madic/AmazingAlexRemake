@@ -562,7 +562,10 @@ void GameView::layoutTip() {
     // The info button: at the play field's left edge, on the strip's centre line.
     const Size b = tipButton_->size();
     const float centreY = h - tb.y;
-    tipButton_->setPosition(Point{playLeft + margin, std::min(centreY - b.h * 0.5f, h - margin - b.h)});
+    const float shownX = playLeft + margin;
+    const float s = tipButtonSlide_;
+    const float eased = s * s * (3.0f - 2.0f * s);   // smoothstep, as the sidebars' kCurveSmooth
+    tipButton_->setPosition(Point{shownX + (-b.w - shownX) * eased, std::min(centreY - b.h * 0.5f, h - margin - b.h)});
     if (!tipPanel_->isVisible()) return;
     // The panel: right of the button up to the strip, its bottom on the button's; above the strip when the
     // strip leaves too little room beside it (a long toolbox).
@@ -653,10 +656,17 @@ void GameView::hide() {
 
 void GameView::update(float dt) {
     View::update(dt);
+    // The info button leaves with the HUD once the simulation starts (controller state 4+) and while the
+    // level completes; it takes no presses from the first frame of its slide out.
+    const aa::sim::Session& session = scene_->session();
+    const bool buttonAway = session.controllerState() >= 4 || session.completing();
+    const float slideStep = dt / kMenuAnim;
+    tipButtonSlide_ = std::clamp(tipButtonSlide_ + (buttonAway ? slideStep : -slideStep), 0.0f, 1.0f);
+    tipButton_->setInteraction(tipButton_->isVisible() && !buttonAway && tipButtonSlide_ == 0.0f);
     if (tipPanel_->isVisible()) {
         tipTime_ -= dt;
         const float total = tipReadingTime(HighlightLabelView::stripMarkers(tip_->text())) + 2.0f * kTipFade;
-        if (tipTime_ <= 0.0f || scene_->session().completing()) {
+        if (tipTime_ <= 0.0f || buttonAway) {
             hideTip();
         } else {
             const float elapsed = total - tipTime_;

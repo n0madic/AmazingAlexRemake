@@ -80,7 +80,7 @@ public:
     void hideLevelName(bool animated);
     void updateLevelInfo();
     // Remake: the level tip (docs/06 §3) — shown on entering a level for its reading time, again from the
-    // info button; hidden by the button while up, and when the level completes.
+    // info button; hidden by the button while up, and when the simulation starts or the level completes.
     static constexpr float kTipBaseTime = 1.0f;
     static constexpr float kTipTimePerLetter = 0.05f;
     static constexpr float kTipMinTime = 2.5f;
@@ -134,6 +134,9 @@ private:
     HighlightLabelView* tip_ = nullptr;
     Button* tipButton_ = nullptr;
     float tipTime_ = 0.0f;   // the shown tip's remaining time (the fades included)
+    // The info button's slide off the left edge (0 in place, 1 off screen): out while the simulation runs
+    // and the level completes, back in set-up — timed like the pause menu's slide.
+    float tipButtonSlide_ = 0.0f;
     float leftOpenX_ = 0.0f;      // +0x490: the sidebar fully out
     float leftShownX_ = 0.0f;     // +0x498: the pause button peeking
     float leftHiddenX_ = 0.0f;    // +0x4a0: everything off screen

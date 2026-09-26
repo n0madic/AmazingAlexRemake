@@ -770,6 +770,44 @@ TEST_CASE("ui engine: the level tip shows in the game beside the toolbox strip f
     CHECK(GameView::tipReadingTime(std::string(1000, 'a')) == GameView::kTipMaxTime);
 }
 
+TEST_CASE("ui engine: the info button slides off the left edge while the simulation runs and back in set-up (remake-only)") {
+    AA_REQUIRE_ASSETS();
+    Fixture f(1024, 768);
+    const aa::sim::FrameTable frames = aa::data::loadFrameTableFile(f.root.atlasJsonPath("GameItems"));
+    const aa::sim::TemplateTable templates = aa::sim::initTemplates(frames);
+    f.app.loadLocation(0);
+    GameScene scene(f.ctx, f.app, templates);
+    scene.init();
+    GameView* gv = scene.gameView();
+    constexpr float kDt = 1.0f / 60.0f;
+    const auto step = [&] {
+        scene.update(kDt);
+        f.animator.update(kDt);
+    };
+    REQUIRE(scene.selectLevel(1));
+    scene.activate();
+    for (int i = 0; i < 60 * 2 && !gv->isTipShown(); ++i) step();
+    REQUIRE(gv->isTipShown());
+    Button* button = gv->tipButton();
+    const float shownX = button->position().x;
+    CHECK(shownX >= 0.0f);
+    CHECK(button->isInteractable());
+    scene.session().stopTutorial();
+    scene.session().play();
+    REQUIRE(scene.session().controllerState() == 4);
+    // No presses from the first frame of the run; the tip goes with it.
+    step();
+    CHECK_FALSE(button->isInteractable());
+    CHECK_FALSE(gv->isTipShown());
+    for (int i = 0; i < 30; ++i) step();
+    CHECK(button->position().x + button->size().w <= 0.0f);
+    scene.session().stop();
+    for (int i = 0; i < 60; ++i) step();
+    REQUIRE(scene.session().controllerState() == 2);
+    CHECK(button->position().x == doctest::Approx(shownX));
+    CHECK(button->isInteractable());
+}
+
 TEST_CASE("ui engine: a button reset to Normal while pressed releases the shared touch id") {
     // Remake fix (docs/06 §1.1): ChapterSelectionView::Refresh resets the books' state on a page change;
     // a release on such a button must not keep the static processed-touch id.
